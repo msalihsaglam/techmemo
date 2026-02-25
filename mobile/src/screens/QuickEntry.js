@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 
 const QuickEntry = () => {
   const [intent, setIntent] = useState(null); // 'solution' or 'problem'
   const [summary, setSummary] = useState('');
   const [suggestedCases, setSuggestedCases] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // API Bağlantısı (Buradaki IP'yi kendi ipconfig çıktınla güncelle!)
+  const API_URL = 'http://192.168.1.66:8000/cases'; 
 
   const handleSummaryChange = (text) => {
     setSummary(text);
     const lowerText = text.toLowerCase();
     
-    // Test amaçlı 3 karakter ve 'wincc' kontrolü
+    // Basit öneri mekanizması (Backend'den çekmek için geliştirilebilir)
     if (lowerText.length >= 3 && lowerText.includes('wincc')) {
       setSuggestedCases([
         { id: 1, title: 'WinCC Runtime Tag Connectivity Issue', author: 'Ahmet Y.' },
@@ -21,13 +25,52 @@ const QuickEntry = () => {
     }
   };
 
+  const handleSave = async () => {
+    console.log("İstek atılan adres:", API_URL);
+    if (!intent || !summary) {
+      Alert.alert("Hata", "Lütfen bir niyet seçin ve özet yazın.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: summary,
+          intent: intent,
+          system_tag: summary.toLowerCase().includes('wincc') ? 'SCADA' : 'PLC',
+          author_name: "Mehmet" // İleride Login sisteminden gelecek
+        }),
+      });
+
+      if (response.ok) {
+        Alert.alert("Başarılı", "Vaka sisteme kaydedildi! 🚀");
+        // Formu temizle
+        setSummary('');
+        setIntent(null);
+        setSuggestedCases([]);
+      } else {
+        Alert.alert("Hata", "Sunucu hatası oluştu.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Hata", "Bağlantı kurulamadı. Backend çalışıyor mu?");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1 }}
     >
       <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-        {/* Modern Yapıda Header App.js'den geldiği için buradaki başlığı temizledik */}
         
         {/* 1. Niyet Seçimi */}
         <View style={styles.section}>
@@ -87,15 +130,16 @@ const QuickEntry = () => {
         {/* 4. Alt Buton Bölümü */}
         <View style={{ marginBottom: 40 }}>
           <TouchableOpacity 
-            style={[styles.nextBtn, !intent && styles.disabledBtn]} 
-            disabled={!intent}
+            style={[styles.nextBtn, (!intent || isSubmitting) && styles.disabledBtn]} 
+            onPress={handleSave}
+            disabled={!intent || isSubmitting}
             activeOpacity={0.8}
           >
             <Text style={styles.nextBtnText}>
-              {intent === 'solution' ? 'Çözümü Kaydet' : 'Yardım İste'}
+              {isSubmitting ? 'Kaydediliyor...' : (intent === 'solution' ? 'Çözümü Kaydet' : 'Yardım İste')}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.footerNote}>Fotoğraf ve detayları bir sonraki adımda ekleyebilirsiniz.</Text>
+          <Text style={styles.footerNote}>Sistem: {summary.toLowerCase().includes('wincc') ? 'SCADA' : 'PLC'}</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -115,10 +159,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
     elevation: 2 
   },
   solutionActive: { borderColor: '#4CAF50', backgroundColor: '#F1F8E9' },

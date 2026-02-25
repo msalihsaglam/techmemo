@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+// Sayfanın odakta olup olmadığını takip etmek için ekledik
+import { useIsFocused } from '@react-navigation/native'; 
 
 const HomeScreen = () => {
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  const isFocused = useIsFocused(); // Sayfa aktif mi değil mi?
 
-  // API'den verileri çekme fonksiyonu
   const fetchCases = async () => {
     try {
-      // DİKKAT: 'localhost' yerine bilgisayarının IP adresini yazmalısın!
+      // IP adresin sabit kalmalı, eğer değişirse burayı güncellemeyi unutma
       const response = await fetch('http://192.168.1.66:8000/cases'); 
       const data = await response.json();
+      
+      // En yeni vakayı en üstte göstermek için listeyi ters çevirebiliriz (Opsiyonel)
+      // setCases(data.reverse()); 
       setCases(data);
     } catch (error) {
       console.error("Veri çekme hatası:", error);
@@ -21,20 +27,23 @@ const HomeScreen = () => {
     }
   };
 
+  // Sayfaya her odaklanıldığında (sekme değiştirip dönüldüğünde) çalışır
   useEffect(() => {
-    fetchCases();
-  }, []);
+    if (isFocused) {
+      fetchCases();
+    }
+  }, [isFocused]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchCases();
   };
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#1A237E" />
-        <Text>Vakalar yükleniyor...</Text>
+        <Text style={{ marginTop: 10 }}>Vakalar yükleniyor...</Text>
       </View>
     );
   }
@@ -45,7 +54,11 @@ const HomeScreen = () => {
         data={cases}
         keyExtractor={item => item.id.toString()}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card}>
+          <TouchableOpacity 
+            style={styles.card} 
+            activeOpacity={0.7}
+            onPress={() => console.log("Detaya git:", item.id)} // Şimdilik log basalım
+          >
             <View style={styles.cardHeader}>
               <View style={[styles.badge, { backgroundColor: item.status === 'resolved' ? '#E8F5E9' : '#FFF3E0' }]}>
                 <Text style={[styles.badgeText, { color: item.status === 'resolved' ? '#2E7D32' : '#EF6C00' }]}>
@@ -54,7 +67,9 @@ const HomeScreen = () => {
               </View>
               <Text style={styles.points}>+{item.points} XP</Text>
             </View>
+            
             <Text style={styles.cardTitle}>{item.title}</Text>
+            
             <View style={styles.cardFooter}>
               <Text style={styles.systemTag}>#{item.system}</Text>
               <Text style={styles.author}>👤 {item.author}</Text>
@@ -62,18 +77,35 @@ const HomeScreen = () => {
           </TouchableOpacity>
         )}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1A237E" />
+        }
+        // Veri yoksa gösterilecek mesaj
+        ListEmptyComponent={
+          <View style={styles.center}>
+            <Text style={{ color: '#999', marginTop: 50 }}>Henüz vaka bulunmuyor.</Text>
+          </View>
         }
       />
     </View>
   );
 };
 
-// Stiller aynı kalabilir, sadece .center ekleyelim
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F2F5' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: { backgroundColor: '#FFF', borderRadius: 15, padding: 15, marginBottom: 15, marginHorizontal: 15, elevation: 3, marginTop: 10 },
+  card: { 
+    backgroundColor: '#FFF', 
+    borderRadius: 15, 
+    padding: 15, 
+    marginBottom: 12, 
+    marginHorizontal: 15, 
+    elevation: 3, 
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 10, fontWeight: 'bold' },
