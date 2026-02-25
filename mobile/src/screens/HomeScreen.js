@@ -1,23 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-// Sayfanın odakta olup olmadığını takip etmek için ekledik
 import { useIsFocused } from '@react-navigation/native'; 
 
-const HomeScreen = () => {
+// DİKKAT: Burada { navigation } prop'unu ekledik
+const HomeScreen = ({ navigation }) => { 
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  const isFocused = useIsFocused(); // Sayfa aktif mi değil mi?
+  const isFocused = useIsFocused(); 
 
   const fetchCases = async () => {
     try {
-      // IP adresin sabit kalmalı, eğer değişirse burayı güncellemeyi unutma
       const response = await fetch('http://192.168.1.66:8000/cases'); 
       const data = await response.json();
-      
-      // En yeni vakayı en üstte göstermek için listeyi ters çevirebiliriz (Opsiyonel)
-      // setCases(data.reverse()); 
       setCases(data);
     } catch (error) {
       console.error("Veri çekme hatası:", error);
@@ -27,7 +23,6 @@ const HomeScreen = () => {
     }
   };
 
-  // Sayfaya her odaklanıldığında (sekme değiştirip dönüldüğünde) çalışır
   useEffect(() => {
     if (isFocused) {
       fetchCases();
@@ -57,7 +52,8 @@ const HomeScreen = () => {
           <TouchableOpacity 
             style={styles.card} 
             activeOpacity={0.7}
-            onPress={() => console.log("Detaya git:", item.id)} // Şimdilik log basalım
+            // Artık navigation objesi yukarıda tanımlı olduğu için hata vermeyecek
+            onPress={() => navigation.navigate('CaseDetail', { item })} 
           >
             <View style={styles.cardHeader}>
               <View style={[styles.badge, { backgroundColor: item.status === 'resolved' ? '#E8F5E9' : '#FFF3E0' }]}>
@@ -79,7 +75,6 @@ const HomeScreen = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1A237E" />
         }
-        // Veri yoksa gösterilecek mesaj
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={{ color: '#999', marginTop: 50 }}>Henüz vaka bulunmuyor.</Text>
